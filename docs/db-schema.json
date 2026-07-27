@@ -1,0 +1,72 @@
+{
+  "database": "sqlite",
+  "tables": [
+    {
+      "name": "users",
+      "description": "Usuarios de la aplicacion. El MVP solo usa un login hardcodeado (no consulta esta tabla para autenticar), pero cada tablero pertenece a un usuario para soportar multiples usuarios en el futuro.",
+      "columns": [
+        { "name": "id", "type": "INTEGER", "primary_key": true, "autoincrement": true, "nullable": false },
+        { "name": "username", "type": "TEXT", "nullable": false, "unique": true }
+      ]
+    },
+    {
+      "name": "columns",
+      "description": "Columnas del tablero Kanban de un usuario. El MVP soporta 1 tablero por usuario, es decir todas sus columnas.",
+      "columns": [
+        { "name": "id", "type": "TEXT", "primary_key": true, "nullable": false },
+        { "name": "user_id", "type": "INTEGER", "nullable": false },
+        { "name": "title", "type": "TEXT", "nullable": false },
+        { "name": "position", "type": "INTEGER", "nullable": false }
+      ],
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "cards",
+      "description": "Tarjetas dentro de una columna.",
+      "columns": [
+        { "name": "id", "type": "TEXT", "primary_key": true, "nullable": false },
+        { "name": "column_id", "type": "TEXT", "nullable": false },
+        { "name": "title", "type": "TEXT", "nullable": false },
+        { "name": "details", "type": "TEXT", "nullable": false, "default": "" },
+        { "name": "position", "type": "INTEGER", "nullable": false }
+      ],
+      "foreign_keys": [
+        {
+          "column": "column_id",
+          "references_table": "columns",
+          "references_column": "id",
+          "on_delete": "CASCADE"
+        }
+      ]
+    }
+  ],
+  "seed_data": {
+    "users": [
+      { "id": 1, "username": "user" }
+    ],
+    "columns": [
+      { "id": "col-backlog", "user_id": 1, "title": "Backlog", "position": 0 },
+      { "id": "col-discovery", "user_id": 1, "title": "Discovery", "position": 1 },
+      { "id": "col-progress", "user_id": 1, "title": "In Progress", "position": 2 },
+      { "id": "col-review", "user_id": 1, "title": "Review", "position": 3 },
+      { "id": "col-done", "user_id": 1, "title": "Done", "position": 4 }
+    ],
+    "cards": [
+      { "id": "card-1", "column_id": "col-backlog", "title": "Align roadmap themes", "details": "Draft quarterly themes with impact statements and metrics.", "position": 0 },
+      { "id": "card-2", "column_id": "col-backlog", "title": "Gather customer signals", "details": "Review support tags, sales notes, and churn feedback.", "position": 1 },
+      { "id": "card-3", "column_id": "col-discovery", "title": "Prototype analytics view", "details": "Sketch initial dashboard layout and key drill-downs.", "position": 0 },
+      { "id": "card-4", "column_id": "col-progress", "title": "Refine status language", "details": "Standardize column labels and tone across the board.", "position": 0 },
+      { "id": "card-5", "column_id": "col-progress", "title": "Design card layout", "details": "Add hierarchy and spacing for scanning dense lists.", "position": 1 },
+      { "id": "card-6", "column_id": "col-review", "title": "QA micro-interactions", "details": "Verify hover, focus, and loading states.", "position": 0 },
+      { "id": "card-7", "column_id": "col-done", "title": "Ship marketing page", "details": "Final copy approved and asset pack delivered.", "position": 0 },
+      { "id": "card-8", "column_id": "col-done", "title": "Close onboarding sprint", "details": "Document release notes and share internally.", "position": 1 }
+    ]
+  }
+}
