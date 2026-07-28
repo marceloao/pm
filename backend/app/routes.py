@@ -44,8 +44,7 @@ def _column_cards(conn: sqlite3.Connection, column_id: str) -> list[CardOut]:
     return [CardOut(**dict(row)) for row in rows]
 
 
-@router.get("/board")
-def get_board(conn: sqlite3.Connection = Depends(get_db)) -> BoardOut:
+def fetch_board(conn: sqlite3.Connection) -> BoardOut:
     columns = conn.execute(
         "SELECT id, title, position FROM columns WHERE user_id = ? ORDER BY position",
         (MVP_USER_ID,),
@@ -58,25 +57,70 @@ def get_board(conn: sqlite3.Connection = Depends(get_db)) -> BoardOut:
     )
 
 
-@router.post("/cards", status_code=201)
-def create_card(
-    card: CardCreate, conn: sqlite3.Connection = Depends(get_db)
-) -> CardOut:
-    _fetch_column(conn, card.column_id)
+@router.get("/board")
+def get_board(conn: sqlite3.Connection = Depends(get_db)) -> BoardOut:
+    return fetch_board(conn)
 
+
+def _insert_card(
+    conn: sqlite3.Connection, column_id: str, title: str, details: str
+) -> tuple[str, int]:
     next_position = conn.execute(
         "SELECT COALESCE(MAX(position) + 1, 0) FROM cards WHERE column_id = ?",
-        (card.column_id,),
+        (column_id,),
     ).fetchone()[0]
 
     card_id = f"card-{uuid4().hex[:8]}"
     conn.execute(
         "INSERT INTO cards (id, column_id, title, details, position) VALUES (?, ?, ?, ?, ?)",
-        (card_id, card.column_id, card.title, card.details, next_position),
+        (card_id, column_id, title, details, next_position),
     )
+    return card_id, next_position
+
+
+def _apply_card_update(
+    conn: sqlite3.Connection, card: sqlite3.Row, title: str | None, details: str | None
+) -> tuple[str, str]:
+    title = title if title is not None else card["title"]
+    details = details if details is not None else card["details"]
+    conn.execute(
+        "UPDATE cards SET title = ?, details = ? WHERE id = ?",
+        (title, details, card["id"]),
+    )
+    return title, details
+
+
+def _apply_card_move(
+    conn: sqlite3.Connection, card: sqlite3.Row, column_id: str, position: int
+) -> None:
+    old_column_id = card["column_id"]
+    old_position = card["position"]
+
+    conn.execute(
+        "UPDATE cards SET position = position - 1 "
+        "WHERE column_id = ? AND position > ? AND id != ?",
+        (old_column_id, old_position, card["id"]),
+    )
+    conn.execute(
+        "UPDATE cards SET position = position + 1 "
+        "WHERE column_id = ? AND position >= ? AND id != ?",
+        (column_id, position, card["id"]),
+    )
+    conn.execute(
+        "UPDATE cards SET column_id = ?, position = ? WHERE id = ?",
+        (column_id, position, card["id"]),
+    )
+
+
+@router.post("/cards", status_code=201)
+def create_card(
+    card: CardCreate, conn: sqlite3.Connection = Depends(get_db)
+) -> CardOut:
+    _fetch_column(conn, card.column_id)
+    card_id, position = _insert_card(conn, card.column_id, card.title, card.details)
     conn.commit()
 
-    return CardOut(id=card_id, title=card.title, details=card.details, position=next_position)
+    return CardOut(id=card_id, title=card.title, details=card.details, position=position)
 
 
 @router.patch("/cards/{card_id}")
@@ -84,14 +128,7 @@ def update_card(
     card_id: str, update: CardUpdate, conn: sqlite3.Connection = Depends(get_db)
 ) -> CardOut:
     card = _fetch_card(conn, card_id)
-
-    title = update.title if update.title is not None else card["title"]
-    details = update.details if update.details is not None else card["details"]
-
-    conn.execute(
-        "UPDATE cards SET title = ?, details = ? WHERE id = ?",
-        (title, details, card_id),
-    )
+    title, details = _apply_card_update(conn, card, update.title, update.details)
     conn.commit()
 
     return CardOut(id=card_id, title=title, details=details, position=card["position"])
@@ -111,24 +148,7 @@ def move_card(
 ) -> CardOut:
     card = _fetch_card(conn, card_id)
     _fetch_column(conn, move.column_id)
-
-    old_column_id = card["column_id"]
-    old_position = card["position"]
-
-    conn.execute(
-        "UPDATE cards SET position = position - 1 "
-        "WHERE column_id = ? AND position > ? AND id != ?",
-        (old_column_id, old_position, card_id),
-    )
-    conn.execute(
-        "UPDATE cards SET position = position + 1 "
-        "WHERE column_id = ? AND position >= ? AND id != ?",
-        (move.column_id, move.position, card_id),
-    )
-    conn.execute(
-        "UPDATE cards SET column_id = ?, position = ? WHERE id = ?",
-        (move.column_id, move.position, card_id),
-    )
+    _apply_card_move(conn, card, move.column_id, move.position)
     conn.commit()
 
     return CardOut(

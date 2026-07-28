@@ -146,13 +146,14 @@ Permite que el backend realice una llamada a la IA mediante OpenRouter. Prueba l
 Parte 9: Ahora, amplía la llamada al backend para que siempre llame a la IA con el JSON del tablero Kanban, además de la pregunta del usuario (y el historial de la conversación). La IA debe responder con Salidas Estructuradas que incluyan la respuesta al usuario y, opcionalmente, una actualización del Kanban. Realiza pruebas exhaustivas.
 
 **Checklist**
-- [ ] Definir el schema de Structured Outputs (respuesta de texto + actualización opcional del tablero)
-- [ ] Enviar en cada llamada: JSON del tablero actual, historial de conversación y pregunta del usuario
-- [ ] Aplicar la actualización del tablero en la BD cuando la IA la incluya
-- [ ] Manejar el caso en que la IA no propone ninguna actualización
+- [x] Definir el schema de Structured Outputs (respuesta de texto + actualización opcional del tablero, como lista de acciones tipadas)
+- [x] Enviar en cada llamada: JSON del tablero actual, historial de conversación y pregunta del usuario
+- [x] Aplicar la actualización del tablero en la BD cuando la IA la incluya
+- [x] Manejar el caso en que la IA no propone ninguna actualización
 
 **Pruebas**
 - pytest con casos: la IA responde solo texto (sin tocar el tablero), la IA responde con una actualización válida (se aplica correctamente), la IA responde con una actualización inválida (se rechaza sin romper el tablero).
+- Nota: el modelo gratuito `openai/gpt-oss-20b:free` ignora `response_format: json_schema` de OpenRouter (verificado manualmente contra la API real); el schema se describe en el prompt del sistema y se parsea de forma tolerante (extrayendo el primer `{`...último `}` del contenido).
 
 **Criterios de éxito**
 - Las actualizaciones propuestas por la IA se reflejan correctamente en la base de datos cuando son válidas.

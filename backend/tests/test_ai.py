@@ -87,3 +87,79 @@ def test_ai_ping_returns_502_when_the_ai_call_fails(client, monkeypatch):
     response = client.get("/api/ai/ping")
 
     assert response.status_code == 502
+
+
+def test_parse_ai_chat_output_parses_a_clean_json_object():
+    output = ai.parse_ai_chat_output('{"reply": "hi", "actions": []}')
+
+    assert output.reply == "hi"
+    assert output.actions == []
+
+
+def test_parse_ai_chat_output_strips_stray_text_around_the_json_object():
+    output = ai.parse_ai_chat_output(' oops{"reply": "hi", "actions": []}\ntrailing')
+
+    assert output.reply == "hi"
+    assert output.actions == []
+
+
+def test_parse_ai_chat_output_falls_back_to_raw_text_when_not_json():
+    output = ai.parse_ai_chat_output("no json here at all")
+
+    assert output.reply == "no json here at all"
+    assert output.actions == []
+
+
+def _fake_ask_ai_chat(raw_content: str):
+    async def fake(board, history, message):
+        return raw_content
+
+    return fake
+
+
+def test_ai_chat_replies_with_text_only_and_leaves_the_board_unchanged(client, monkeypatch):
+    monkeypatch.setattr(
+        ai_routes, "ask_ai_chat", _fake_ask_ai_chat('{"reply": "Hello there", "actions": []}')
+    )
+
+    before = client.get("/api/board").json()
+    response = client.post("/api/ai/chat", json={"message": "hi", "history": []})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reply"] == "Hello there"
+    assert body["board"] == before
+
+
+def test_ai_chat_applies_a_valid_create_card_action(client, monkeypatch):
+    raw = (
+        '{"reply": "Created it", "actions": [{"type": "create_card", '
+        '"column_id": "col-backlog", "card_id": null, "title": "New task", '
+        '"details": null, "position": null}]}'
+    )
+    monkeypatch.setattr(ai_routes, "ask_ai_chat", _fake_ask_ai_chat(raw))
+
+    response = client.post("/api/ai/chat", json={"message": "add a card", "history": []})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reply"] == "Created it"
+    backlog = next(c for c in body["board"]["columns"] if c["id"] == "col-backlog")
+    assert any(card["title"] == "New task" for card in backlog["cards"])
+
+
+def test_ai_chat_rejects_an_invalid_action_without_corrupting_the_board(client, monkeypatch):
+    raw = (
+        '{"reply": "Done", "actions": [{"type": "update_card", '
+        '"column_id": null, "card_id": "does-not-exist", "title": "x", '
+        '"details": null, "position": null}]}'
+    )
+    monkeypatch.setattr(ai_routes, "ask_ai_chat", _fake_ask_ai_chat(raw))
+
+    before = client.get("/api/board").json()
+    response = client.post("/api/ai/chat", json={"message": "edit a card", "history": []})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reply"] == "Done"
+    assert body["board"] == before
