@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.ai_routes import router as ai_router
 from app.database import get_connection, init_db
 from app.routes import router
 
@@ -29,5 +30,6 @@ def hello() -> dict[str, str]:
 
 
 app.include_router(router)
+app.include_router(ai_router)
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

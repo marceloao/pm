@@ -131,10 +131,10 @@ Parte 8: Conectividad con IA
 Permite que el backend realice una llamada a la IA mediante OpenRouter. Prueba la conectividad con una prueba simple de "2+2" y asegúrate de que la llamada a la IA funcione correctamente.
 
 **Checklist**
-- [ ] Configurar cliente OpenRouter en el backend usando `OPENROUTER_API_KEY` desde .env
-- [ ] Usar el modelo `openai/gpt-oss-120b:free`
-- [ ] Crear endpoint mínimo de prueba que envíe una pregunta simple (ej. "¿cuánto es 2+2?") y devuelva la respuesta de la IA
-- [ ] Asegurarse de que la API key nunca se expone al frontend
+- [x] Configurar cliente OpenRouter en el backend usando `OPENROUTER_API_KEY` desde .env
+- [x] Usar el modelo `openai/gpt-oss-20b:free` (ver nota en CLAUDE.md raíz: `120b:free` dejó de estar disponible gratis en OpenRouter, confirmado con la API real)
+- [x] Crear endpoint mínimo de prueba que envíe una pregunta simple (ej. "¿cuánto es 2+2?") y devuelva la respuesta de la IA
+- [x] Asegurarse de que la API key nunca se expone al frontend
 
 **Pruebas**
 - pytest (o prueba manual con curl) que llama al endpoint de prueba y verifica una respuesta coherente de la IA.

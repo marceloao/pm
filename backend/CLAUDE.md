@@ -4,12 +4,14 @@ FastAPI mínimo, gestionado con `uv`. Sirve el frontend estático en `/` y expon
 
 ## Estructura
 
-- `pyproject.toml` - dependencias (`fastapi`, `uvicorn`) y grupo `dev` (`pytest`, `httpx`) para tests
-- `app/main.py` - instancia FastAPI, `lifespan` que inicializa la base de datos al arrancar, incluye el router de la API, monta `static/` en `/`
+- `pyproject.toml` - dependencias (`fastapi`, `uvicorn`, `httpx`) y grupo `dev` (`pytest`) para tests
+- `app/main.py` - instancia FastAPI, `lifespan` que inicializa la base de datos al arrancar, incluye los routers de la API, monta `static/` en `/`
 - `app/database.py` - conexión SQLite, esquema (`CREATE TABLE IF NOT EXISTS`) y datos semilla (usuario + 5 columnas + 8 tarjetas, igual a `initialData` del frontend). Ver el diseño completo en `docs/db-schema.json` y `docs/DATABASE.md`.
 - `app/schemas.py` - modelos Pydantic de request/response
-- `app/routes.py` - endpoints de la API (`/api/board`, `/api/cards`, `/api/columns`)
-- `tests/` - suite pytest (`conftest.py` con el fixture `client`, `test_board.py`)
+- `app/routes.py` - endpoints del tablero (`/api/board`, `/api/cards`, `/api/columns`)
+- `app/ai.py` - cliente HTTP hacia OpenRouter (`ask_ai(prompt)`), usando `httpx.AsyncClient` y el modelo `openai/gpt-oss-20b:free`
+- `app/ai_routes.py` - endpoints relacionados con la IA (`/api/ai/*`); separado de `routes.py` porque va a seguir creciendo (chat con contexto del tablero, Structured Outputs)
+- `tests/` - suite pytest (`conftest.py` con el fixture `client`, `test_board.py`, `test_ai.py`)
 - `static/` - build estático del frontend (Next.js con `output: "export"`), servido en `/`. No se edita a mano ni se versiona: lo genera el stage `frontend-build` del `Dockerfile` en cada build de la imagen (`COPY --from=frontend-build /frontend/out ./static`). Para correr el backend localmente sin Docker hay que generarlo antes a mano (`cd frontend && npm run build` y copiar `frontend/out/*` a `backend/static/`).
 - `Dockerfile` - build multi-stage: primero compila el frontend (`node:22-slim`) generando el export estático, luego arma la imagen Python (`uv sync` + `uvicorn`) copiando ese resultado a `static/`
 
@@ -27,6 +29,11 @@ SQLite. Ubicación configurable por `DATABASE_PATH` (default `data/kanban.db`, r
 - `DELETE /api/cards/{card_id}` - elimina una tarjeta
 - `POST /api/cards/{card_id}/move` - mueve una tarjeta a `{column_id, position}`, reacomodando el resto de las tarjetas afectadas
 - `PATCH /api/columns/{column_id}` - renombra una columna
+- `GET /api/ai/ping` - prueba de conectividad con la IA: pregunta "2+2" a OpenRouter y devuelve `{question, answer}`. Responde `502` si la llamada a OpenRouter falla (clave faltante, error de red, etc.)
+
+## IA (OpenRouter)
+
+`OPENROUTER_API_KEY` viene de `.env` en la raíz (cargado por `env_file` en `docker-compose.yml`) y solo existe en el proceso del backend - nunca se expone al frontend. `app/ai.py` arma el request a `https://openrouter.ai/api/v1/chat/completions` con el modelo `openai/gpt-oss-20b:free`.
 
 ## Tests
 
