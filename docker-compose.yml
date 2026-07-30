@@ -10,5 +10,23 @@ services:
     volumes:
       - backend-data:/app/data
 
+  caddy:
+    image: caddy:2-alpine
+    profiles:
+      - prod
+    depends_on:
+      - backend
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+
 volumes:
   backend-data:
+  caddy-data:
+  caddy-config:
