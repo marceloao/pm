@@ -73,3 +73,16 @@ export async function renameColumn(columnId: string, title: string): Promise<voi
     body: JSON.stringify({ title }),
   });
 }
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+export async function sendChatMessage(
+  message: string,
+  history: ChatMessage[]
+): Promise<{ reply: string; board: BoardData }> {
+  const response = await request<{ reply: string; board: ApiBoard }>("/api/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
+  });
+  return { reply: response.reply, board: toBoardData(response.board) };
+}

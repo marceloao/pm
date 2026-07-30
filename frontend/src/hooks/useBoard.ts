@@ -107,6 +107,7 @@ export function useBoard() {
     board,
     loading,
     error,
+    setBoard,
     moveCard,
     renameColumn,
     commitRenameColumn,

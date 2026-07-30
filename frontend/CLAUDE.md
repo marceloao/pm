@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Next.js exportado como sitio estático (`output: "export"`, ver `next.config.ts`) y servido por el backend FastAPI en `/` (ver `backend/CLAUDE.md`). Login simulado con credenciales hardcodeadas (`src/lib/auth.ts`) y sesión en `localStorage`. El tablero Kanban ya no usa datos hardcodeados: se carga y persiste contra la API real del backend (`GET/POST/PATCH/DELETE /api/*`).
+Next.js exportado como sitio estático (`output: "export"`, ver `next.config.ts`) y servido por el backend FastAPI en `/` (ver `backend/CLAUDE.md`). Login simulado con credenciales hardcodeadas (`src/lib/auth.ts`) y sesión en `localStorage`. El tablero Kanban ya no usa datos hardcodeados: se carga y persiste contra la API real del backend (`GET/POST/PATCH/DELETE /api/*`). Además hay un panel lateral de chat con IA (`POST /api/ai/chat`) que puede actualizar el tablero automáticamente.
 
 ## Stack
 
@@ -22,13 +22,15 @@ Next.js exportado como sitio estático (`output: "export"`, ver `next.config.ts`
 - `src/components/KanbanCard.tsx` - tarjeta draggable (título, detalle, botón eliminar)
 - `src/components/KanbanCardPreview.tsx` - vista de la tarjeta usada en el `DragOverlay` mientras se arrastra
 - `src/components/NewCardForm.tsx` - formulario inline para agregar tarjetas
+- `src/components/ChatSidebar.tsx` - panel lateral de chat con la IA: lista de mensajes (usuario/asistente), indicador "Thinking…" mientras espera respuesta, input + botón enviar
 - `src/hooks/useAuth.ts` - sesión de login (`localStorage`)
-- `src/hooks/useBoard.ts` - carga el tablero desde la API al montar (`board`, `loading`, `error`) y expone las acciones (`moveCard`, `renameColumn`/`commitRenameColumn`, `addCard`, `deleteCard`) que llaman a `src/lib/api.ts`
+- `src/hooks/useBoard.ts` - carga el tablero desde la API al montar (`board`, `loading`, `error`) y expone las acciones (`moveCard`, `renameColumn`/`commitRenameColumn`, `addCard`, `deleteCard`) que llaman a `src/lib/api.ts`, además de `setBoard` para reemplazar el tablero completo (usado cuando la IA lo actualiza)
+- `src/hooks/useChat.ts` - historial de mensajes del chat (`messages`, `sending`, `error`) y `sendMessage`, que llama a `api.sendChatMessage` mandando el mensaje + historial acumulado, agrega la respuesta al historial y notifica el tablero nuevo vía el callback `onBoardUpdate`
 - `src/lib/auth.ts` - credenciales hardcodeadas y validación
-- `src/lib/api.ts` - cliente HTTP sobre `fetch` (rutas relativas `/api/...`); mapea la forma de la API del backend al `BoardData` normalizado del frontend
+- `src/lib/api.ts` - cliente HTTP sobre `fetch` (rutas relativas `/api/...`); mapea la forma de la API del backend al `BoardData` normalizado del frontend; incluye `sendChatMessage(message, history)` para `POST /api/ai/chat`
 - `src/lib/kanban.ts` - tipos (`Card`, `Column`, `BoardData`) y la función pura `moveCard` (reordena/mueve tarjetas entre columnas; se usa tanto para la UI optimista como base para calcular qué mandarle a la API)
 - `src/test/setup.ts` - matchers de `@testing-library/jest-dom` para Vitest
-- `tests/login.spec.ts`, `tests/kanban.spec.ts`, `tests/persistence.spec.ts` - specs e2e de Playwright
+- `tests/login.spec.ts`, `tests/kanban.spec.ts`, `tests/persistence.spec.ts`, `tests/chat.spec.ts` - specs e2e de Playwright
 
 ## Cómo funciona el tablero
 
@@ -39,6 +41,10 @@ Next.js exportado como sitio estático (`output: "export"`, ver `next.config.ts`
 - Renombrar columna: el input actualiza el estado local en cada tecla (`onRename`), pero solo persiste con `PATCH /api/columns/{id}` en el `onBlur` (`onRenameCommit`) para no mandar un request por letra.
 
 Si falla alguna llamada a la API, `useBoard` guarda un mensaje en `error` (no revierte el cambio optimista - mantenido simple para el MVP).
+
+## Cómo funciona el chat con IA
+
+`ChatSidebar` (visible junto al tablero en `KanbanBoard`) usa `useChat()`, que mantiene el historial de mensajes en estado local y llama a `api.sendChatMessage(message, history)` (`POST /api/ai/chat`) en cada envío. La respuesta trae `{reply, board}`: `reply` se agrega al historial como mensaje del asistente, y `board` (el tablero completo tras aplicar los cambios que la IA haya propuesto, o sin cambios si no propuso ninguno) se pasa vía el callback `onBoardUpdate` a `setBoard` de `useBoard`, reemplazando el estado del tablero en la UI sin necesidad de recargar la página. Si la llamada falla, se muestra un mensaje de error debajo de los mensajes (el historial no se pierde).
 
 Drag-and-drop con `@dnd-kit`: `KanbanBoard` define el `DndContext` (sensor de puntero, detección de colisión `closestCorners`); cada columna es una zona `useDroppable` que envuelve un `SortableContext`; cada tarjeta usa `useSortable`; mientras se arrastra, un `DragOverlay` muestra `KanbanCardPreview`.
 
@@ -59,6 +65,3 @@ Definida como variables CSS en `src/app/globals.css` (`:root`), consumida vía c
 - `E2E_BASE_URL=http://localhost:8000 npx playwright test` - corre la misma suite e2e contra el contenedor Docker real (con backend)
 - `npm run test:all` - unitarios y luego e2e
 
-## Pendiente para partes siguientes del plan
-
-- Widget de chat con IA en la barra lateral (Parte 10)

@@ -162,10 +162,10 @@ Parte 9: Ahora, amplía la llamada al backend para que siempre llame a la IA con
 Parte 10: Ahora, añade un atractivo widget lateral a la interfaz de usuario que admita el chat completo con la IA y permita que el LLM (según lo determine) actualice el Kanban en función de sus Salidas Estructuradas. Si la IA actualiza el Kanban, la interfaz de usuario se actualizará automáticamente.
 
 **Checklist**
-- [ ] Diseñar e implementar el panel lateral de chat (siguiendo la paleta de colores del CLAUDE.md raíz)
-- [ ] Conectar el chat al endpoint de la Parte 9 (envío de mensajes, mantenimiento de historial)
-- [ ] Refrescar automáticamente el tablero en la UI cuando la IA aplique una actualización
-- [ ] Pruebas exhaustivas end-to-end del flujo completo de chat + actualización de tablero
+- [x] Diseñar e implementar el panel lateral de chat (siguiendo la paleta de colores del CLAUDE.md raíz)
+- [x] Conectar el chat al endpoint de la Parte 9 (envío de mensajes, mantenimiento de historial)
+- [x] Refrescar automáticamente el tablero en la UI cuando la IA aplique una actualización
+- [x] Pruebas exhaustivas end-to-end del flujo completo de chat + actualización de tablero
 
 **Pruebas**
 - Playwright e2e simulando una conversación en el chat que dispara un cambio de tablero (ej. "crea una tarjeta X en la columna Y") y verificando que aparece sin recargar manualmente.
