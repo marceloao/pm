@@ -22,7 +22,7 @@ Next.js exportado como sitio estático (`output: "export"`, ver `next.config.ts`
 - `src/components/AdminPanel.tsx` - módulo de administración (solo alcanzable si `role === "admin"`): tabla de usuarios con `<select>` de nivel por fila (cambia `role` al instante), botón de resetear contraseña (modal con `ChangePasswordForm`-style input) y botón de eliminar (deshabilitado para el propio usuario); formulario para crear un usuario nuevo (`username`, `password`, `role`)
 - `src/components/ChangePasswordForm.tsx` - modal con contraseña actual/nueva; usado tanto por cualquier usuario para su propia contraseña como internamente en `AdminPanel` para resetear la de otro usuario
 - `src/components/KanbanColumn.tsx` - columna droppable/sortable, input de renombrado (persiste en `onBlur`), formulario de nueva tarjeta
-- `src/components/KanbanCard.tsx` - tarjeta draggable (título, detalle, botón eliminar)
+- `src/components/KanbanCard.tsx` - tarjeta draggable (título, detalle, botón de eliminar con ícono de tacho de basura en SVG inline)
 - `src/components/KanbanCardPreview.tsx` - vista de la tarjeta usada en el `DragOverlay` mientras se arrastra
 - `src/components/NewCardForm.tsx` - formulario inline para agregar tarjetas
 - `src/components/ChatSidebar.tsx` - panel lateral de chat con la IA: lista de mensajes (usuario/asistente), indicador "Pensando…" mientras espera respuesta, input + botón enviar
