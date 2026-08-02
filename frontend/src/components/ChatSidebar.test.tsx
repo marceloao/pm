@@ -18,7 +18,7 @@ describe("ChatSidebar", () => {
     });
     const onBoardUpdate = vi.fn();
 
-    render(<ChatSidebar onBoardUpdate={onBoardUpdate} />);
+    render(<ChatSidebar boardId="board-1" onBoardUpdate={onBoardUpdate} />);
 
     await userEvent.type(screen.getByTestId("chat-input"), "Create a card");
     await userEvent.click(screen.getByTestId("chat-send"));
@@ -31,7 +31,7 @@ describe("ChatSidebar", () => {
   it("shows an error when the request fails", async () => {
     vi.mocked(api.sendChatMessage).mockRejectedValue(new Error("network down"));
 
-    render(<ChatSidebar onBoardUpdate={() => {}} />);
+    render(<ChatSidebar boardId="board-1" onBoardUpdate={() => {}} />);
 
     await userEvent.type(screen.getByTestId("chat-input"), "Hello");
     await userEvent.click(screen.getByTestId("chat-send"));
@@ -41,7 +41,7 @@ describe("ChatSidebar", () => {
 
   it("does not submit an empty message", async () => {
     vi.mocked(api.sendChatMessage).mockClear();
-    render(<ChatSidebar onBoardUpdate={() => {}} />);
+    render(<ChatSidebar boardId="board-1" onBoardUpdate={() => {}} />);
 
     expect(screen.getByTestId("chat-send")).toBeDisabled();
     expect(api.sendChatMessage).not.toHaveBeenCalled();

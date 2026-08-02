@@ -1,6 +1,7 @@
 import asyncio
 
 from app import ai, ai_routes
+from app.database import SEED_BOARD_ID
 
 
 class FakeResponse:
@@ -122,8 +123,10 @@ def test_ai_chat_replies_with_text_only_and_leaves_the_board_unchanged(client, m
         ai_routes, "ask_ai_chat", _fake_ask_ai_chat('{"reply": "Hello there", "actions": []}')
     )
 
-    before = client.get("/api/board").json()
-    response = client.post("/api/ai/chat", json={"message": "hi", "history": []})
+    before = client.get(f"/api/boards/{SEED_BOARD_ID}").json()
+    response = client.post(
+        "/api/ai/chat", json={"board_id": SEED_BOARD_ID, "message": "hi", "history": []}
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -139,7 +142,10 @@ def test_ai_chat_applies_a_valid_create_card_action(client, monkeypatch):
     )
     monkeypatch.setattr(ai_routes, "ask_ai_chat", _fake_ask_ai_chat(raw))
 
-    response = client.post("/api/ai/chat", json={"message": "add a card", "history": []})
+    response = client.post(
+        "/api/ai/chat",
+        json={"board_id": SEED_BOARD_ID, "message": "add a card", "history": []},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -156,8 +162,11 @@ def test_ai_chat_rejects_an_invalid_action_without_corrupting_the_board(client, 
     )
     monkeypatch.setattr(ai_routes, "ask_ai_chat", _fake_ask_ai_chat(raw))
 
-    before = client.get("/api/board").json()
-    response = client.post("/api/ai/chat", json={"message": "edit a card", "history": []})
+    before = client.get(f"/api/boards/{SEED_BOARD_ID}").json()
+    response = client.post(
+        "/api/ai/chat",
+        json={"board_id": SEED_BOARD_ID, "message": "edit a card", "history": []},
+    )
 
     assert response.status_code == 200
     body = response.json()

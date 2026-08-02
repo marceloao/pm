@@ -18,9 +18,12 @@ const fixtureBoard = {
   },
 };
 
+const basicUser = { id: 1, username: "user", role: "basico" as const };
+
 const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
 
 beforeEach(() => {
+  vi.mocked(api.fetchBoards).mockResolvedValue([{ id: "board-1", name: "Mi tablero" }]);
   vi.mocked(api.fetchBoard).mockResolvedValue(structuredClone(fixtureBoard));
   vi.mocked(api.renameColumn).mockResolvedValue(undefined);
   vi.mocked(api.deleteCard).mockResolvedValue(undefined);
@@ -29,16 +32,20 @@ beforeEach(() => {
 
 describe("KanbanBoard", () => {
   it("renders five columns", async () => {
-    render(<KanbanBoard onLogout={() => {}} />);
+    render(
+      <KanbanBoard user={basicUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
     expect(await screen.findAllByTestId(/column-/i)).toHaveLength(5);
   });
 
   it("renames a column", async () => {
-    render(<KanbanBoard onLogout={() => {}} />);
+    render(
+      <KanbanBoard user={basicUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
     await screen.findAllByTestId(/column-/i);
 
     const column = getFirstColumn();
-    const input = within(column).getByLabelText("Column title");
+    const input = within(column).getByLabelText("Título de columna");
     await userEvent.clear(input);
     await userEvent.type(input, "New Name");
     expect(input).toHaveValue("New Name");
@@ -54,26 +61,28 @@ describe("KanbanBoard", () => {
       details: "Notes",
     });
 
-    render(<KanbanBoard onLogout={() => {}} />);
+    render(
+      <KanbanBoard user={basicUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
     await screen.findAllByTestId(/column-/i);
 
     const column = getFirstColumn();
     const addButton = within(column).getByRole("button", {
-      name: /add a card/i,
+      name: /agregar una tarjeta/i,
     });
     await userEvent.click(addButton);
 
-    const titleInput = within(column).getByPlaceholderText(/card title/i);
+    const titleInput = within(column).getByPlaceholderText(/título de la tarjeta/i);
     await userEvent.type(titleInput, "New card");
-    const detailsInput = within(column).getByPlaceholderText(/details/i);
+    const detailsInput = within(column).getByPlaceholderText(/detalles/i);
     await userEvent.type(detailsInput, "Notes");
 
-    await userEvent.click(within(column).getByRole("button", { name: /add card/i }));
+    await userEvent.click(within(column).getByRole("button", { name: /agregar tarjeta/i }));
 
     expect(await within(column).findByText("New card")).toBeInTheDocument();
 
     const deleteButton = within(column).getByRole("button", {
-      name: /delete new card/i,
+      name: /eliminar new card/i,
     });
     await userEvent.click(deleteButton);
 
@@ -83,9 +92,25 @@ describe("KanbanBoard", () => {
   it("shows an error state when the board fails to load", async () => {
     vi.mocked(api.fetchBoard).mockRejectedValue(new Error("network down"));
 
-    render(<KanbanBoard onLogout={() => {}} />);
+    render(
+      <KanbanBoard user={basicUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
 
     expect(await screen.findByTestId("board-error")).toBeInTheDocument();
     expect(screen.queryByTestId(/column-/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the admin panel button only for admin users", async () => {
+    render(
+      <KanbanBoard user={basicUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
+    await screen.findAllByTestId(/column-/i);
+    expect(screen.queryByTestId("open-admin-panel")).not.toBeInTheDocument();
+
+    const adminUser = { id: 2, username: "admin", role: "admin" as const };
+    render(
+      <KanbanBoard user={adminUser} onLogout={() => {}} onChangePassword={async () => null} />
+    );
+    expect(await screen.findAllByTestId("open-admin-panel")).toHaveLength(1);
   });
 });

@@ -1,28 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AUTH_STORAGE_KEY, validateCredentials } from "@/lib/auth";
+import {
+  AuthError,
+  type AuthUser,
+  changePassword as apiChangePassword,
+  fetchCurrentUser,
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+} from "@/lib/auth";
 
 export function useAuth() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    setIsAuthenticated(localStorage.getItem(AUTH_STORAGE_KEY) === "true");
+    fetchCurrentUser()
+      .then(setUser)
+      .finally(() => setCheckingSession(false));
   }, []);
 
-  const login = (username: string, password: string): boolean => {
-    if (!validateCredentials(username, password)) {
-      return false;
+  const login = async (username: string, password: string): Promise<string | null> => {
+    try {
+      setUser(await apiLogin(username, password));
+      return null;
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        return "Usuario o contraseña incorrectos.";
+      }
+      return "No se pudo iniciar sesión.";
     }
-    localStorage.setItem(AUTH_STORAGE_KEY, "true");
-    setIsAuthenticated(true);
-    return true;
   };
 
-  const logout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setIsAuthenticated(false);
+  const register = async (username: string, password: string): Promise<string | null> => {
+    try {
+      setUser(await apiRegister(username, password));
+      return null;
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 409) {
+        return "Ese nombre de usuario ya existe.";
+      }
+      return "No se pudo crear la cuenta.";
+    }
   };
 
-  return { isAuthenticated, login, logout };
+  const logout = async () => {
+    await apiLogout();
+    setUser(null);
+  };
+
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<string | null> => {
+    try {
+      await apiChangePassword(currentPassword, newPassword);
+      return null;
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        return "La contraseña actual es incorrecta.";
+      }
+      return "No se pudo cambiar la contraseña.";
+    }
+  };
+
+  return {
+    user,
+    isAuthenticated: user !== null,
+    checkingSession,
+    login,
+    register,
+    logout,
+    changePassword,
+  };
 }

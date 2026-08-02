@@ -5,11 +5,15 @@ import { LoginForm } from "@/components/LoginForm";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
-  const { isAuthenticated, login, logout } = useAuth();
+  const { user, checkingSession, login, register, logout, changePassword } = useAuth();
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={login} />;
+  if (checkingSession) {
+    return null;
   }
 
-  return <KanbanBoard onLogout={logout} />;
+  if (!user) {
+    return <LoginForm onLogin={login} onRegister={register} />;
+  }
+
+  return <KanbanBoard user={user} onLogout={logout} onChangePassword={changePassword} />;
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -8,8 +8,13 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('[data-testid^="column-"]').first()).toBeVisible();
 });
 
+async function getActiveBoard(page: Page) {
+  const boards = await (await page.request.get("/api/boards")).json();
+  return (await page.request.get(`/api/boards/${boards[0].id}`)).json();
+}
+
 test("chatting with the AI updates the board without a manual reload", async ({ page }) => {
-  const boardBefore = await (await page.request.get("/api/board")).json();
+  const boardBefore = await getActiveBoard(page);
   const boardAfter = structuredClone(boardBefore);
   boardAfter.columns[0].cards.push({
     id: "ai-card-1",
@@ -32,7 +37,7 @@ test("chatting with the AI updates the board without a manual reload", async ({ 
 });
 
 test("a text-only AI reply leaves the board untouched", async ({ page }) => {
-  const board = await (await page.request.get("/api/board")).json();
+  const board = await getActiveBoard(page);
   const columnCount = board.columns.length;
 
   await page.route("**/api/ai/chat", async (route) => {

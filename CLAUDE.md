@@ -1,21 +1,28 @@
-# Aplicación de Gestión de Proyectos MVP
+# Aplicación de Gestión de Proyectos
 
 ## Requisitos de Negocio
 
-Este proyecto está construyendo una Aplicación de Gestión de Proyectos. Características principales:
-- Un usuario puede iniciar sesión
-- Cuando inicia sesión, el usuario ve un tablero Kanban que representa su proyecto
-- El tablero Kanban tiene columnas fijas que se pueden renombrar
+Este proyecto está construyendo una Aplicación de Gestión de Proyectos multiusuario. Características principales:
+- Un usuario se puede registrar e iniciar sesión con credenciales propias (usuario/contraseña, con contraseña hasheada en la base de datos)
+- Un usuario puede cambiar su propia contraseña desde dentro de la aplicación
+- Un usuario puede tener varios tableros Kanban y elegir con cuál trabajar
+- Cada tablero Kanban tiene columnas (por defecto las fijas del MVP original) que se pueden renombrar; un tablero puede tener sus propias columnas
 - Las tarjetas del tablero Kanban se pueden mover con arrastrar y soltar, y editar
-- Hay una característica de chat con IA en la barra lateral; la IA puede crear / editar / mover una o más tarjetas
+- Hay una característica de chat con IA en la barra lateral; la IA puede crear / editar / mover una o más tarjetas dentro del tablero activo
+- Cada usuario tiene un nivel: `admin` o `basico`. Solo un usuario `admin` puede acceder al módulo de administración de usuarios (listar, crear, cambiar nivel, resetear contraseña, eliminar usuarios)
+- Toda la interfaz (textos visibles del sitio) está en español
 
 ## Limitaciones
 
-Para el MVP, solo habrá un inicio de sesión de usuario (codificado como 'user' y 'password'), pero la base de datos admitirá múltiples usuarios en el futuro.
+El MVP original (login hardcodeado `user`/`password`, 1 solo tablero por usuario) ya fue completado — ver Partes 1 a 10 en `docs/PLAN.md`. A partir de la Parte 11 el proyecto evoluciona a multiusuario real y multi-tablero; a partir de la Parte 13 se agregan niveles de usuario (admin/básico), cambio de contraseña, y un módulo de administración; las limitaciones de abajo aplican desde ahí en adelante.
 
-Para el MVP, solo habrá 1 tablero Kanban por usuario que inicie sesión.
+Autenticación real por usuario: registro con usuario/contraseña, contraseña hasheada (nunca en texto plano), sesión mediante cookie/token simple. Sin recuperación de contraseña por email — mantenerlo simple (solo cambio de contraseña autenticado, o reseteo por un admin).
 
-Para el MVP, esto se ejecutará localmente (en un contenedor docker)
+Cada usuario puede tener múltiples tableros Kanban (crear, renombrar, eliminar, listar) y cambiar entre ellos. Las columnas y tarjetas pertenecen a un tablero, no directamente a un usuario.
+
+Un usuario nuevo que se autorregistra siempre queda con nivel `basico`. Solo existe un usuario semilla con nivel `admin` (`admin`/`admin`); otros usuarios `admin` solo pueden crearse desde el propio módulo de administración (un admin promoviendo a otro usuario), no hay autorregistro como admin.
+
+Esto sigue ejecutándose localmente (en un contenedor docker), sin despliegue multi-tenant en la nube como requisito de esta etapa.
 
 ## Decisiones Técnicas
 

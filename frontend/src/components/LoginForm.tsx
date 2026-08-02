@@ -1,18 +1,31 @@
 import { useState, type FormEvent } from "react";
 
 type LoginFormProps = {
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (username: string, password: string) => Promise<string | null>;
+  onRegister: (username: string, password: string) => Promise<string | null>;
 };
 
-export const LoginForm = ({ onLogin }: LoginFormProps) => {
+export const LoginForm = ({ onLogin, onRegister }: LoginFormProps) => {
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const isRegister = mode === "register";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const success = onLogin(username, password);
-    setError(!success);
+    setSubmitting(true);
+    const action = isRegister ? onRegister : onLogin;
+    const result = await action(username, password);
+    setError(result);
+    setSubmitting(false);
+  };
+
+  const toggleMode = () => {
+    setMode(isRegister ? "login" : "register");
+    setError(null);
   };
 
   return (
@@ -26,14 +39,14 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             Kanban Studio
           </p>
           <h1 className="mt-3 font-display text-2xl font-semibold text-[var(--navy-dark)]">
-            Sign in
+            {isRegister ? "Crear una cuenta" : "Iniciar sesión"}
           </h1>
         </div>
         <input
           data-testid="login-username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
-          placeholder="Username"
+          placeholder="Usuario"
           className="w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
         />
         <input
@@ -41,20 +54,29 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           type="password"
-          placeholder="Password"
+          placeholder="Contraseña"
           className="w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
         />
         {error ? (
           <p data-testid="login-error" className="text-sm text-red-600">
-            Invalid username or password.
+            {error}
           </p>
         ) : null}
         <button
           data-testid="login-submit"
           type="submit"
-          className="w-full rounded-full bg-[var(--secondary-purple)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:brightness-110"
+          disabled={submitting}
+          className="w-full rounded-full bg-[var(--secondary-purple)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:opacity-60"
         >
-          Sign in
+          {isRegister ? "Crear cuenta" : "Iniciar sesión"}
+        </button>
+        <button
+          type="button"
+          data-testid="toggle-auth-mode"
+          onClick={toggleMode}
+          className="w-full text-center text-xs font-semibold uppercase tracking-wide text-[var(--primary-blue)]"
+        >
+          {isRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿Nuevo aquí? Crea una cuenta"}
         </button>
       </form>
     </div>

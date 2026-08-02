@@ -14,25 +14,47 @@ import {
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { BoardSelector } from "@/components/BoardSelector";
+import { AdminPanel } from "@/components/AdminPanel";
+import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { useBoard } from "@/hooks/useBoard";
+import { useBoards } from "@/hooks/useBoards";
+import type { AuthUser } from "@/lib/auth";
 
 type KanbanBoardProps = {
-  onLogout: () => void;
+  user: AuthUser;
+  onLogout: () => void | Promise<void>;
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
 };
 
-export const KanbanBoard = ({ onLogout }: KanbanBoardProps) => {
+export const KanbanBoard = ({ user, onLogout, onChangePassword }: KanbanBoardProps) => {
+  const {
+    boards,
+    activeBoardId,
+    loading: boardsLoading,
+    error: boardsError,
+    switchBoard,
+    addBoard,
+    renameBoard,
+    removeBoard,
+  } = useBoards();
   const {
     board,
-    loading,
-    error,
+    loading: boardLoading,
+    error: boardError,
     setBoard,
     moveCard,
     renameColumn,
     commitRenameColumn,
     addCard,
     deleteCard,
-  } = useBoard();
+  } = useBoard(activeBoardId);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "admin">("board");
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const loading = boardsLoading || (Boolean(activeBoardId) && boardLoading);
+  const error = boardsError ?? boardError;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -59,13 +81,17 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps) => {
 
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
 
+  if (view === "admin") {
+    return <AdminPanel currentUserId={user.id} onClose={() => setView("board")} />;
+  }
+
   if (loading) {
     return (
       <div
         data-testid="board-loading"
         className="flex min-h-screen items-center justify-center text-sm font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
       >
-        Loading board…
+        Cargando tablero…
       </div>
     );
   }
@@ -76,7 +102,7 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps) => {
         data-testid="board-error"
         className="flex min-h-screen items-center justify-center text-sm font-semibold text-red-600"
       >
-        {error ?? "Something went wrong."}
+        {error ?? "Ocurrió un error inesperado."}
       </div>
     );
   }
@@ -91,35 +117,53 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps) => {
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--gray-text)]">
-                Single Board Kanban
+                Kanban Studio
               </p>
               <h1 className="mt-3 font-display text-4xl font-semibold text-[var(--navy-dark)]">
                 Kanban Studio
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--gray-text)]">
-                Keep momentum visible. Rename columns, drag cards between stages,
-                and capture quick notes without getting buried in settings.
+                Mantén el ritmo a la vista. Cambia de tablero, renombra columnas, arrastra
+                tarjetas entre etapas y anota lo importante sin perderte en configuraciones.
               </p>
             </div>
             <div className="flex items-start gap-4">
-              <div className="rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--gray-text)]">
-                  Focus
-                </p>
-                <p className="mt-2 text-lg font-semibold text-[var(--primary-blue)]">
-                  One board. Five columns. Zero clutter.
-                </p>
-              </div>
+              {user.role === "admin" ? (
+                <button
+                  type="button"
+                  data-testid="open-admin-panel"
+                  onClick={() => setView("admin")}
+                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--gray-text)] transition hover:text-[var(--navy-dark)]"
+                >
+                  Administración
+                </button>
+              ) : null}
+              <button
+                type="button"
+                data-testid="open-change-password"
+                onClick={() => setShowChangePassword(true)}
+                className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--gray-text)] transition hover:text-[var(--navy-dark)]"
+              >
+                Cambiar contraseña
+              </button>
               <button
                 type="button"
                 data-testid="logout-button"
                 onClick={onLogout}
                 className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--gray-text)] transition hover:text-[var(--navy-dark)]"
               >
-                Log out
+                Cerrar sesión
               </button>
             </div>
           </div>
+          <BoardSelector
+            boards={boards}
+            activeBoardId={activeBoardId}
+            onSwitch={switchBoard}
+            onCreate={addBoard}
+            onRename={renameBoard}
+            onDelete={removeBoard}
+          />
           <div className="flex flex-wrap items-center gap-4">
             {board.columns.map((column) => (
               <div
@@ -161,9 +205,16 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps) => {
               ) : null}
             </DragOverlay>
           </DndContext>
-          <ChatSidebar onBoardUpdate={setBoard} />
+          <ChatSidebar boardId={activeBoardId} onBoardUpdate={setBoard} />
         </div>
       </main>
+
+      {showChangePassword ? (
+        <ChangePasswordForm
+          onChangePassword={onChangePassword}
+          onClose={() => setShowChangePassword(false)}
+        />
+      ) : null}
     </div>
   );
 };

@@ -12,9 +12,9 @@ test("a created card survives a page reload", async ({ page }) => {
   const title = `Persisted card ${Date.now()}`;
   const firstColumn = page.locator('[data-testid^="column-"]').first();
 
-  await firstColumn.getByRole("button", { name: /add a card/i }).click();
-  await firstColumn.getByPlaceholder("Card title").fill(title);
-  await firstColumn.getByRole("button", { name: /add card/i }).click();
+  await firstColumn.getByRole("button", { name: /agregar una tarjeta/i }).click();
+  await firstColumn.getByPlaceholder("Título de la tarjeta").fill(title);
+  await firstColumn.getByRole("button", { name: /agregar tarjeta/i }).click();
   await expect(firstColumn.getByText(title)).toBeVisible();
 
   await page.reload();

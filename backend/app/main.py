@@ -4,7 +4,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.admin_routes import router as admin_router
 from app.ai_routes import router as ai_router
+from app.auth_routes import router as auth_router
 from app.database import get_connection, init_db
 from app.routes import router
 
@@ -29,6 +31,8 @@ def hello() -> dict[str, str]:
     return {"message": "Hello from the API"}
 
 
+app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(router)
 app.include_router(ai_router)
 

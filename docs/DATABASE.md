@@ -1,25 +1,37 @@
 # Base de datos
 
-Esquema propuesto para el tablero Kanban, guardado en [`docs/db-schema.json`](./db-schema.json). SQLite, sin ORM decidido todavía (se define en la Parte 6).
+Esquema del tablero Kanban, guardado en [`docs/db-schema.json`](./db-schema.json). SQLite, sin ORM (acceso directo con `sqlite3` en `backend/app/database.py`).
+
+Este documento refleja el esquema vigente desde la Parte 13 (multi-tablero + niveles de usuario). El diseño original del MVP (1 tablero por usuario, sin tabla `boards`, sin `role`) queda documentado en la sección "Historial" al final.
 
 ## Relaciones
 
 ```
-users (1) --- (N) columns (1) --- (N) cards
+users (1) --- (N) sessions
+users (1) --- (N) boards (1) --- (N) columns (1) --- (N) cards
 ```
 
-Un usuario tiene varias columnas (su único tablero); una columna tiene varias tarjetas.
+Un usuario tiene varios tableros; un tablero tiene varias columnas; una columna tiene varias tarjetas.
 
 ## Tablas
 
-- **users**: `id` (PK autoincremental), `username` (único). No guarda contraseña: el login del MVP (Parte 4) está hardcodeado en el frontend y no consulta la base de datos. Esta tabla existe para poder asociar `user_id` a las columnas y así soportar múltiples usuarios en el futuro, según lo indicado en el CLAUDE.md raíz.
-- **columns**: `id` (TEXT, PK), `user_id` (FK a `users.id`), `title`, `position` (orden de la columna en el tablero).
+- **users**: `id` (PK autoincremental), `username` (único), `password_hash` (bcrypt, nunca texto plano), `role` (`admin` | `basico`, default `basico`).
+- **sessions**: `id` (TEXT, PK; es el valor de la cookie `session_id`), `user_id` (FK a `users.id`), `created_at`.
+- **boards**: `id` (TEXT, PK), `user_id` (FK a `users.id`), `name`, `position` (orden del tablero en el selector).
+- **columns**: `id` (TEXT, PK), `board_id` (FK a `boards.id`), `title`, `position` (orden de la columna en el tablero).
 - **cards**: `id` (TEXT, PK), `column_id` (FK a `columns.id`), `title`, `details`, `position` (orden de la tarjeta dentro de la columna).
 
 ## Decisiones de diseño
 
-- **No hay tabla `boards`**: el MVP pide "1 tablero por usuario", nada más. Ese tablero es implícitamente "todas las columnas de ese `user_id`". Agregar una entidad `boards` hoy sería diseñar para un requisito (múltiples tableros) que no está pedido.
-- **Ids de `columns`/`cards` como TEXT, no autoincrementales**: el frontend (`frontend/src/lib/kanban.ts`) ya genera y maneja ids como strings con prefijo (`col-backlog`, `card-1`, `createId()`). Usar el mismo tipo de id en la base de datos evita tener que remapear ids entre frontend y backend cuando se conecten en la Parte 7.
-- **Campo `position`**: el frontend ordena las tarjetas de una columna con el array `cardIds`. En SQL no hay orden implícito de filas, así que `position` (entero) hace explícito ese orden y permite reordenar con `UPDATE`.
-- **`ON DELETE CASCADE`** en ambas foreign keys: borrar un usuario borra sus columnas, borrar una columna borra sus tarjetas. Evita quedar con filas huérfanas sin agregar lógica de limpieza manual.
-- **Datos semilla** (`seed_data` en el JSON): un usuario (`user`) con las mismas 5 columnas y 8 tarjetas que hoy están hardcodeadas en `initialData` (`frontend/src/lib/kanban.ts`). Así, cuando el backend (Parte 6) cree la base de datos por primera vez, el demo que ve el usuario es idéntico al que ya conoce del frontend.
+- **Ids de `boards`/`columns`/`cards` como TEXT, no autoincrementales**: el frontend ya genera y maneja ids como strings con prefijo (`col-backlog`, `card-1`, `board-xxxxxxxx`). Usar el mismo tipo de id en la base de datos evita remapear ids entre frontend y backend.
+- **Campo `position`**: no hay orden implícito de filas en SQL, así que `position` (entero) hace explícito el orden de tableros/columnas/tarjetas y permite reordenar con `UPDATE`.
+- **`ON DELETE CASCADE`** en todas las foreign keys: borrar un usuario borra sus sesiones/tableros; borrar un tablero borra sus columnas; borrar una columna borra sus tarjetas. Evita filas huérfanas sin lógica de limpieza manual.
+- **No se puede borrar el único tablero de un usuario**: el endpoint `DELETE /api/boards/{id}` devuelve `400` si es el último, para que un usuario nunca quede sin ningún tablero.
+- **Migración automática desde el esquema del MVP**: `backend/app/database.py::_migrate_columns_to_boards` detecta bases de datos creadas antes de la Parte 12 (columnas con `user_id` directo, sin `board_id`) y las migra sin perder datos: crea un tablero `"Mi tablero"` por cada usuario existente y reasigna sus columnas a ese tablero.
+- **Un solo usuario semilla `admin`**: `role = admin` no se puede autorregistrar (`POST /api/auth/register` siempre asigna `basico`); el único punto de entrada para un nuevo admin es que un admin existente cambie el `role` de otro usuario desde `/api/admin/users/{id}`. Nunca se permite dejar el sistema sin ningún admin (ver más abajo).
+- **No se puede degradar ni eliminar al último admin**: tanto `PATCH /api/admin/users/{id}` (bajar `role` a `basico`) como `DELETE /api/admin/users/{id}` devuelven `400` si el usuario objetivo es el único con `role = admin`.
+- **Datos semilla** (`seed_data` en el JSON): un usuario `user`/`password` (`role = basico`) con un tablero `"Mi tablero"` (mismas 5 columnas y 8 tarjetas que `initialData` en `frontend/src/lib/kanban.ts`), y un usuario `admin`/`admin` (`role = admin`) con su propio tablero vacío. Un usuario nuevo registrado recibe un tablero con las mismas 5 columnas, sin tarjetas, y `role = basico`.
+
+## Historial (esquema del MVP, Partes 1-10)
+
+Antes de la Parte 11 no existían `password_hash` ni `sessions` (login hardcodeado, sin backend). Antes de la Parte 12 no existía la tabla `boards`: cada fila de `columns` tenía un `user_id` directo (FK a `users.id`), y el "tablero" de un usuario era implícitamente todas sus columnas. Antes de la Parte 13 no existía `role` (no había niveles de usuario ni módulo de administración). Ver el historial de commits para el detalle exacto de esos esquemas.

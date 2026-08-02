@@ -1,8 +1,10 @@
 import type { BoardData, Card, Column } from "@/lib/kanban";
 
+export type BoardSummary = { id: string; name: string };
+
 type ApiCard = { id: string; title: string; details: string; position: number };
 type ApiColumn = { id: string; title: string; position: number; cards: ApiCard[] };
-type ApiBoard = { columns: ApiColumn[] };
+type ApiBoard = { id: string; name: string; columns: ApiColumn[] };
 
 function toBoardData(board: ApiBoard): BoardData {
   const cards: Record<string, Card> = {};
@@ -36,8 +38,31 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchBoard(): Promise<BoardData> {
-  return toBoardData(await request<ApiBoard>("/api/board"));
+export async function fetchBoards(): Promise<BoardSummary[]> {
+  return request<BoardSummary[]>("/api/boards");
+}
+
+export async function fetchBoard(boardId: string): Promise<BoardData> {
+  return toBoardData(await request<ApiBoard>(`/api/boards/${boardId}`));
+}
+
+export async function createBoard(name: string): Promise<BoardSummary> {
+  const board = await request<ApiBoard>("/api/boards", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+  return { id: board.id, name: board.name };
+}
+
+export async function renameBoard(boardId: string, name: string): Promise<BoardSummary> {
+  return request<BoardSummary>(`/api/boards/${boardId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  await request<void>(`/api/boards/${boardId}`, { method: "DELETE" });
 }
 
 export async function createCard(
@@ -77,12 +102,13 @@ export async function renameColumn(columnId: string, title: string): Promise<voi
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export async function sendChatMessage(
+  boardId: string,
   message: string,
   history: ChatMessage[]
 ): Promise<{ reply: string; board: BoardData }> {
   const response = await request<{ reply: string; board: ApiBoard }>("/api/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ board_id: boardId, message, history }),
   });
   return { reply: response.reply, board: toBoardData(response.board) };
 }

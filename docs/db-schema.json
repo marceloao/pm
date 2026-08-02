@@ -3,25 +3,62 @@
   "tables": [
     {
       "name": "users",
-      "description": "Usuarios de la aplicacion. El MVP solo usa un login hardcodeado (no consulta esta tabla para autenticar), pero cada tablero pertenece a un usuario para soportar multiples usuarios en el futuro.",
+      "description": "Usuarios de la aplicacion. Registro/login reales (Parte 11), contrasena hasheada con bcrypt. Nivel admin/basico desde la Parte 13.",
       "columns": [
         { "name": "id", "type": "INTEGER", "primary_key": true, "autoincrement": true, "nullable": false },
-        { "name": "username", "type": "TEXT", "nullable": false, "unique": true }
+        { "name": "username", "type": "TEXT", "nullable": false, "unique": true },
+        { "name": "password_hash", "type": "TEXT", "nullable": false, "default": "" },
+        { "name": "role", "type": "TEXT", "nullable": false, "default": "basico", "allowed_values": ["admin", "basico"] }
       ]
     },
     {
-      "name": "columns",
-      "description": "Columnas del tablero Kanban de un usuario. El MVP soporta 1 tablero por usuario, es decir todas sus columnas.",
+      "name": "sessions",
+      "description": "Sesiones de login activas (cookie httponly con este id).",
       "columns": [
         { "name": "id", "type": "TEXT", "primary_key": true, "nullable": false },
         { "name": "user_id", "type": "INTEGER", "nullable": false },
-        { "name": "title", "type": "TEXT", "nullable": false },
+        { "name": "created_at", "type": "TEXT", "nullable": false }
+      ],
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "boards",
+      "description": "Tableros Kanban de un usuario. Desde la Parte 12 un usuario puede tener varios.",
+      "columns": [
+        { "name": "id", "type": "TEXT", "primary_key": true, "nullable": false },
+        { "name": "user_id", "type": "INTEGER", "nullable": false },
+        { "name": "name", "type": "TEXT", "nullable": false },
         { "name": "position", "type": "INTEGER", "nullable": false }
       ],
       "foreign_keys": [
         {
           "column": "user_id",
           "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "columns",
+      "description": "Columnas de un tablero.",
+      "columns": [
+        { "name": "id", "type": "TEXT", "primary_key": true, "nullable": false },
+        { "name": "board_id", "type": "TEXT", "nullable": false },
+        { "name": "title", "type": "TEXT", "nullable": false },
+        { "name": "position", "type": "INTEGER", "nullable": false }
+      ],
+      "foreign_keys": [
+        {
+          "column": "board_id",
+          "references_table": "boards",
           "references_column": "id",
           "on_delete": "CASCADE"
         }
@@ -49,14 +86,19 @@
   ],
   "seed_data": {
     "users": [
-      { "id": 1, "username": "user" }
+      { "id": 1, "username": "user", "password_hash": "<bcrypt hash of 'password'>", "role": "basico" },
+      { "id": 2, "username": "admin", "password_hash": "<bcrypt hash of 'admin'>", "role": "admin" }
+    ],
+    "boards": [
+      { "id": "board-1", "user_id": 1, "name": "Mi tablero", "position": 0 },
+      { "id": "board-admin", "user_id": 2, "name": "Mi tablero", "position": 0 }
     ],
     "columns": [
-      { "id": "col-backlog", "user_id": 1, "title": "Backlog", "position": 0 },
-      { "id": "col-discovery", "user_id": 1, "title": "Discovery", "position": 1 },
-      { "id": "col-progress", "user_id": 1, "title": "In Progress", "position": 2 },
-      { "id": "col-review", "user_id": 1, "title": "Review", "position": 3 },
-      { "id": "col-done", "user_id": 1, "title": "Done", "position": 4 }
+      { "id": "col-backlog", "board_id": "board-1", "title": "Backlog", "position": 0 },
+      { "id": "col-discovery", "board_id": "board-1", "title": "Discovery", "position": 1 },
+      { "id": "col-progress", "board_id": "board-1", "title": "In Progress", "position": 2 },
+      { "id": "col-review", "board_id": "board-1", "title": "Review", "position": 3 },
+      { "id": "col-done", "board_id": "board-1", "title": "Done", "position": 4 }
     ],
     "cards": [
       { "id": "card-1", "column_id": "col-backlog", "title": "Align roadmap themes", "details": "Draft quarterly themes with impact statements and metrics.", "position": 0 },

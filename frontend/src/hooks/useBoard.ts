@@ -4,18 +4,38 @@ import { useCallback, useEffect, useState } from "react";
 import { moveCard as reorderColumns, type BoardData } from "@/lib/kanban";
 import * as api from "@/lib/api";
 
-export function useBoard() {
+export function useBoard(boardId: string | null) {
   const [board, setBoard] = useState<BoardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!boardId) {
+      return;
+    }
+
+    let cancelled = false;
+
     api
-      .fetchBoard()
-      .then(setBoard)
-      .catch(() => setError("Could not load the board."))
-      .finally(() => setLoading(false));
-  }, []);
+      .fetchBoard(boardId)
+      .then((result) => {
+        if (cancelled) return;
+        setBoard(result);
+        setError(null);
+        setLoadedFor(boardId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("No se pudo cargar el tablero.");
+        setLoadedFor(boardId);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [boardId]);
+
+  const loading = Boolean(boardId) && loadedFor !== boardId;
 
   const moveCard = useCallback((activeId: string, overId: string) => {
     setBoard((prev) => {
@@ -30,7 +50,7 @@ export function useBoard() {
         const position = targetColumn.cardIds.indexOf(activeId);
         api
           .moveCard(activeId, targetColumn.id, position)
-          .catch(() => setError("Could not save the card move."));
+          .catch(() => setError("No se pudo guardar el movimiento de la tarjeta."));
       }
 
       return { ...prev, columns };
@@ -53,12 +73,12 @@ export function useBoard() {
   const commitRenameColumn = useCallback((columnId: string, title: string) => {
     api
       .renameColumn(columnId, title)
-      .catch(() => setError("Could not save the column name."));
+      .catch(() => setError("No se pudo guardar el nombre de la columna."));
   }, []);
 
   const addCard = useCallback((columnId: string, title: string, details: string) => {
     api
-      .createCard(columnId, title, details || "No details yet.")
+      .createCard(columnId, title, details || "Sin detalles todavía.")
       .then((card) => {
         setBoard((prev) =>
           prev
@@ -74,7 +94,7 @@ export function useBoard() {
             : prev
         );
       })
-      .catch(() => setError("Could not create the card."));
+      .catch(() => setError("No se pudo crear la tarjeta."));
   }, []);
 
   const deleteCard = useCallback((columnId: string, cardId: string) => {
@@ -100,7 +120,7 @@ export function useBoard() {
             : prev
         );
       })
-      .catch(() => setError("Could not delete the card."));
+      .catch(() => setError("No se pudo eliminar la tarjeta."));
   }, []);
 
   return {

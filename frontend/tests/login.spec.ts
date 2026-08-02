@@ -29,6 +29,19 @@ test("logs in with valid credentials and shows the board", async ({ page }) => {
   await expect(page.locator('[data-testid^="column-"]')).toHaveCount(5);
 });
 
+test("registers a new user and shows their own empty board", async ({ page }) => {
+  const username = `newuser-${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByTestId("toggle-auth-mode").click();
+  await page.getByTestId("login-username").fill(username);
+  await page.getByTestId("login-password").fill("secret123");
+  await page.getByTestId("login-submit").click();
+
+  await expect(page.locator('[data-testid^="column-"]')).toHaveCount(5);
+  await expect(page.locator('[data-testid^="card-"]')).toHaveCount(0);
+});
+
 test("logs out and requires login again after a refresh", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("login-username").fill("user");

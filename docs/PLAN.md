@@ -174,3 +174,93 @@ Parte 10: Ahora, añade un atractivo widget lateral a la interfaz de usuario que
 **Criterios de éxito**
 - El usuario puede chatear con la IA desde la barra lateral y ver el tablero actualizarse automáticamente cuando corresponde, sin recargar la página.
 - El chat mantiene el historial de la conversación durante la sesión.
+
+Parte 11: Usuarios reales y autenticación
+
+El MVP (Partes 1-10) queda completo con login hardcodeado y 1 tablero por usuario. Esta parte reemplaza el login hardcodeado por usuarios reales (registro + login) con contraseña hasheada, manteniendo el modelo de "1 tablero por usuario" hasta la Parte 12. Es la base necesaria antes de soportar múltiples tableros.
+
+**Checklist**
+- [x] Añadir columna `password_hash` a `users` (migración de la BD existente: los usuarios sin hash quedan inválidos para login hasta resetear, no hace falta migrar datos de seed)
+- [x] Endpoint de registro (`POST /api/auth/register`): usuario + contraseña, hashea con `bcrypt` (o `passlib`), rechaza username duplicado
+- [x] Endpoint de login (`POST /api/auth/login`): verifica usuario/contraseña contra la BD, crea sesión (cookie httponly con id de sesión o JWT simple)
+- [x] Endpoint de logout y middleware/dependencia de FastAPI que exige sesión válida para las rutas de tablero
+- [x] Actualizar frontend: pantalla de login pasa a llamar al backend real; añadir pantalla de registro
+- [x] Eliminar la validación hardcodeada `user`/`password` del frontend (Parte 4) y el CLAUDE.md de frontend si la referencia
+- [x] Tests unitarios backend (pytest): registro exitoso, username duplicado, login correcto/incorrecto, acceso a rutas protegidas sin sesión (401)
+- [x] Tests e2e (Playwright): registro de un nuevo usuario, login, logout, e intento de acceso directo al tablero sin sesión
+
+**Pruebas**
+- pytest cubriendo hashing (nunca se guarda texto plano), registro duplicado, login con credenciales inválidas, rutas protegidas sin cookie/token.
+- Playwright: flujo completo registro -> login -> ver tablero propio -> logout -> bloqueo de acceso.
+
+**Criterios de éxito**
+- Ya no existe ninguna credencial hardcodeada en el código; todo usuario se autentica contra la base de datos.
+- Dos usuarios distintos, cada uno con su propio tablero (seed por usuario al registrarse), no ven los datos del otro.
+
+Parte 12: Múltiples tableros por usuario
+
+Permite que un usuario tenga varios tableros Kanban, cada uno con sus propias columnas y tarjetas, y pueda crear, renombrar, eliminar y cambiar entre ellos.
+
+**Checklist**
+- [x] Añadir tabla `boards` (`id`, `user_id`, `name`, `position`) y agregar `board_id` a `columns` (reemplaza a `user_id` en `columns`)
+- [x] Migrar el tablero único existente de cada usuario a un `board` por defecto ("Mi tablero") sin perder columnas/tarjetas
+- [x] Endpoints: listar tableros del usuario, crear tablero (con columnas por defecto), renombrar tablero, eliminar tablero
+- [x] Endpoints existentes de columnas/tarjetas pasan a operar sobre un `board_id` concreto en vez de "el tablero del usuario"
+- [x] Frontend: selector de tablero (crear/renombrar/eliminar/cambiar), el tablero activo se recuerda entre recargas
+- [x] El chat con IA opera sobre el tablero activo únicamente
+- [x] Actualizar `docs/DATABASE.md` y `docs/db-schema.json` con el esquema `users -> boards -> columns -> cards`
+- [x] Tests unitarios backend: CRUD de tableros, aislamiento entre tableros de un mismo usuario, aislamiento entre usuarios
+- [x] Tests e2e: crear un segundo tablero, moverse entre tableros, confirmar que cambios en uno no afectan al otro
+
+**Pruebas**
+- pytest: crear/listar/renombrar/eliminar tablero, un tablero eliminado borra en cascada sus columnas y tarjetas, un endpoint de columna/tarjeta con `board_id` de otro usuario devuelve 403/404.
+- Playwright: usuario con dos tableros edita uno, cambia al otro, confirma que no hay mezcla de tarjetas.
+
+**Criterios de éxito**
+- Un usuario puede tener N tableros independientes y cambiar entre ellos sin perder datos.
+- Ningún endpoint permite leer o modificar un tablero que no pertenece al usuario autenticado.
+
+Parte 13: Cambio de contraseña, niveles de usuario y módulo de administración
+
+Permite que cualquier usuario cambie su propia contraseña. Agrega un nivel (`admin`/`basico`) a cada usuario, siembra un usuario `admin`/`admin`, y agrega un módulo de administración (solo visible/accesible para usuarios `admin`) para listar, crear, cambiar nivel, resetear contraseña y eliminar usuarios.
+
+**Checklist**
+- [x] Añadir columna `role` a `users` (`admin` | `basico`, default `basico`); migración para bases existentes (usuario semilla `user` queda `basico`)
+- [x] Sembrar usuario `admin`/`admin` con `role = admin` si no existe
+- [x] Endpoint `POST /api/auth/change-password` (usuario autenticado, requiere contraseña actual correcta)
+- [x] `UserOut`/`GET /api/auth/me` exponen el `role` del usuario actual
+- [x] Dependencia `require_admin` (403 si el usuario autenticado no es `admin`)
+- [x] Endpoints de administración (`/api/admin/users`): listar todos los usuarios, crear usuario (con `role`), cambiar `role`, resetear contraseña, eliminar usuario
+- [x] Un admin no puede eliminarse a sí mismo si es el único admin restante (evitar quedarse sin administradores)
+- [x] Frontend: formulario de cambio de contraseña accesible desde el tablero
+- [x] Frontend: módulo de administración de usuarios, visible solo si `role === "admin"`, con las acciones de arriba
+- [x] Registro público (`/api/auth/register`) sigue creando siempre usuarios `basico` (no hay autorregistro como admin)
+- [x] Tests unitarios backend: cambio de contraseña (éxito/contraseña actual incorrecta), acceso al módulo admin denegado a usuarios `basico` (403), CRUD de usuarios vía admin, no se puede eliminar al último admin
+- [x] Tests e2e: un usuario básico no ve/accede al módulo de administración; un admin gestiona usuarios (crear, cambiar rol, resetear contraseña, eliminar); cambio de contraseña propio y login posterior con la nueva contraseña
+
+**Pruebas**
+- pytest: `change-password` con contraseña actual incorrecta (401/400), con contraseña correcta (200, login posterior solo funciona con la nueva), endpoints `/api/admin/*` devuelven 403 para un usuario `basico` y funcionan para un `admin`, eliminar al único admin devuelve 400.
+- Playwright: login como `admin`/`admin`, entrar al módulo de administración, crear un usuario básico, cambiarle el rol, resetear su contraseña, eliminarlo; login como usuario básico y confirmar que no hay enlace/acceso al módulo de administración.
+
+**Criterios de éxito**
+- Un usuario puede cambiar su propia contraseña y volver a iniciar sesión con la nueva.
+- Solo usuarios con `role = admin` pueden acceder al módulo de administración de usuarios; un usuario `basico` recibe 403 si intenta llamar a esos endpoints directamente.
+- Siempre queda al menos un usuario `admin` en el sistema.
+
+Parte 14: Traducción completa del sitio al español
+
+Traduce todos los textos visibles de la interfaz (botones, títulos, placeholders, mensajes de error, mensajes del asistente de IA en la UI) al español. No aplica a nombres propios/marca (`Kanban Studio`) ni a identificadores técnicos.
+
+**Checklist**
+- [x] Traducir `LoginForm` (login/registro), `KanbanBoard`, `BoardSelector`, `KanbanColumn`, `KanbanCard`, `NewCardForm`, `ChatSidebar` y el nuevo módulo de administración/cambio de contraseña
+- [x] Traducir mensajes de error mostrados en la UI (carga de tablero, guardado de cambios, chat, autenticación)
+- [x] Actualizar tests unitarios (Vitest) y e2e (Playwright) para que verifiquen los textos en español
+- [x] Revisar que no queden textos visibles en inglés en la aplicación (fuera de nombres propios/técnicos)
+
+**Pruebas**
+- Vitest y Playwright actualizados y en verde, verificando los textos en español donde antes verificaban inglés.
+- Revisión manual navegando la app completa (login, registro, tablero, chat, cambio de contraseña, módulo de administración) sin encontrar texto en inglés.
+
+**Criterios de éxito**
+- Toda la interfaz visible para el usuario está en español.
+- La suite de tests (unitarios + e2e) sigue pasando completa tras la traducción.

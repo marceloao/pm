@@ -33,7 +33,7 @@ describe("fetchBoard", () => {
       )
     );
 
-    const board = await fetchBoard();
+    const board = await fetchBoard("board-1");
 
     expect(board.columns).toEqual([
       { id: "col-a", title: "A", cardIds: ["card-1", "card-2"] },
@@ -48,6 +48,6 @@ describe("fetchBoard", () => {
   it("throws when the response is not ok", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, 500)));
 
-    await expect(fetchBoard()).rejects.toThrow();
+    await expect(fetchBoard("board-1")).rejects.toThrow();
   });
 });

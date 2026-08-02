@@ -3,6 +3,33 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class AuthCredentials(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    role: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AdminUserCreate(BaseModel):
+    username: str
+    password: str
+    role: Literal["admin", "basico"] = "basico"
+
+
+class AdminUserUpdate(BaseModel):
+    role: Literal["admin", "basico"] | None = None
+    password: str | None = None
+
+
 class CardOut(BaseModel):
     id: str
     title: str
@@ -17,8 +44,23 @@ class ColumnOut(BaseModel):
     cards: list[CardOut]
 
 
+class BoardSummary(BaseModel):
+    id: str
+    name: str
+
+
 class BoardOut(BaseModel):
+    id: str
+    name: str
     columns: list[ColumnOut]
+
+
+class BoardCreate(BaseModel):
+    name: str
+
+
+class BoardRename(BaseModel):
+    name: str
 
 
 class CardCreate(BaseModel):
@@ -47,6 +89,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    board_id: str
     message: str
     history: list[ChatMessage] = []
 

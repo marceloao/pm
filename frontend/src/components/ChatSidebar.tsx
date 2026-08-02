@@ -5,11 +5,12 @@ import { useChat } from "@/hooks/useChat";
 import type { BoardData } from "@/lib/kanban";
 
 type ChatSidebarProps = {
+  boardId: string | null;
   onBoardUpdate: (board: BoardData) => void;
 };
 
-export const ChatSidebar = ({ onBoardUpdate }: ChatSidebarProps) => {
-  const { messages, sending, error, sendMessage } = useChat(onBoardUpdate);
+export const ChatSidebar = ({ boardId, onBoardUpdate }: ChatSidebarProps) => {
+  const { messages, sending, error, sendMessage } = useChat(boardId, onBoardUpdate);
   const [input, setInput] = useState("");
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -28,10 +29,10 @@ export const ChatSidebar = ({ onBoardUpdate }: ChatSidebarProps) => {
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--gray-text)]">
-          AI Assistant
+          Asistente de IA
         </p>
         <h2 className="mt-2 font-display text-xl font-semibold text-[var(--navy-dark)]">
-          Ask about your board
+          Pregunta sobre tu tablero
         </h2>
       </div>
 
@@ -41,7 +42,7 @@ export const ChatSidebar = ({ onBoardUpdate }: ChatSidebarProps) => {
       >
         {messages.length === 0 ? (
           <p className="text-sm text-[var(--gray-text)]">
-            Ask me to create, edit, or move cards - I can update the board for you.
+            Pídeme crear, editar o mover tarjetas - puedo actualizar el tablero por ti.
           </p>
         ) : (
           messages.map((message, index) => (
@@ -63,7 +64,7 @@ export const ChatSidebar = ({ onBoardUpdate }: ChatSidebarProps) => {
             data-testid="chat-thinking"
             className="mr-auto max-w-[85%] rounded-2xl rounded-bl-sm bg-[var(--surface)] px-4 py-2 text-sm text-[var(--gray-text)]"
           >
-            Thinking…
+            Pensando…
           </div>
         ) : null}
       </div>
@@ -79,16 +80,16 @@ export const ChatSidebar = ({ onBoardUpdate }: ChatSidebarProps) => {
           data-testid="chat-input"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Ask the AI assistant..."
+          placeholder="Pregúntale al asistente de IA..."
           className="flex-1 rounded-full border border-[var(--stroke)] bg-white px-4 py-2 text-sm text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
         />
         <button
           type="submit"
           data-testid="chat-send"
-          disabled={sending || !input.trim()}
+          disabled={sending || !input.trim() || !boardId}
           className="rounded-full bg-[var(--secondary-purple)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:opacity-50"
         >
-          Send
+          Enviar
         </button>
       </form>
     </aside>
