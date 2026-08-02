@@ -29,27 +29,40 @@ If no board change is needed, use an empty actions array.
 Current board JSON:
 {board_json}"""
 
+# The free tier of this model occasionally finishes a completion with
+# content: null (its answer only shows up in the hidden "reasoning" trace),
+# even with reasoning excluded from the request. Retrying the same request
+# reliably gets a normal response, so a few attempts are worth it before
+# surfacing a 502 to the user.
+MAX_ATTEMPTS = 3
 
-async def ask_ai(prompt: str) -> str:
+
+async def _request_completion(messages: list[dict]) -> str:
     api_key = os.environ["OPENROUTER_API_KEY"]
 
+    last_error: Exception = ValueError("AI request was never attempted")
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            OPENROUTER_URL,
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+        for _ in range(MAX_ATTEMPTS):
+            response = await client.post(
+                OPENROUTER_URL,
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={"model": MODEL, "reasoning": {"exclude": True}, "messages": messages},
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            if content:
+                return content
+            last_error = ValueError(f"AI response had no content: {data}")
+
+    raise last_error
+
+
+async def ask_ai(prompt: str) -> str:
+    return await _request_completion([{"role": "user", "content": prompt}])
 
 
 async def ask_ai_chat(board: dict, history: list[dict], message: str) -> str:
-    api_key = os.environ["OPENROUTER_API_KEY"]
-
     messages = [
         {
             "role": "system",
@@ -58,16 +71,7 @@ async def ask_ai_chat(board: dict, history: list[dict], message: str) -> str:
         *history,
         {"role": "user", "content": message},
     ]
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            OPENROUTER_URL,
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={"model": MODEL, "messages": messages},
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+    return await _request_completion(messages)
 
 
 def parse_ai_chat_output(content: str) -> AiChatOutput:

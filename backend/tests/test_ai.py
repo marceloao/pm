@@ -20,6 +20,7 @@ class FakeResponse:
 class FakeAsyncClient:
     calls: list[dict] = []
     response = FakeResponse({"choices": [{"message": {"content": "4"}}]})
+    responses: list | None = None
 
     def __init__(self, *args, **kwargs):
         pass
@@ -32,6 +33,8 @@ class FakeAsyncClient:
 
     async def post(self, url, headers=None, json=None):
         FakeAsyncClient.calls.append({"url": url, "headers": headers, "json": json})
+        if FakeAsyncClient.responses is not None:
+            return FakeAsyncClient.responses[len(FakeAsyncClient.calls) - 1]
         return FakeAsyncClient.response
 
 
@@ -39,6 +42,7 @@ def test_ask_ai_sends_the_expected_request_and_parses_the_answer(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(ai, "httpx", type("M", (), {"AsyncClient": FakeAsyncClient}))
     FakeAsyncClient.calls = []
+    FakeAsyncClient.responses = None
     FakeAsyncClient.response = FakeResponse({"choices": [{"message": {"content": "4"}}]})
 
     result = asyncio.run(ai.ask_ai("What is 2+2?"))
@@ -56,6 +60,7 @@ def test_ask_ai_propagates_http_errors(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(ai, "httpx", type("M", (), {"AsyncClient": FakeAsyncClient}))
     FakeAsyncClient.calls = []
+    FakeAsyncClient.responses = None
     FakeAsyncClient.response = FakeResponse({}, error=RuntimeError("upstream failure"))
 
     try:
@@ -63,6 +68,39 @@ def test_ask_ai_propagates_http_errors(monkeypatch):
         assert False, "expected an exception"
     except RuntimeError:
         pass
+
+
+def test_ask_ai_raises_when_the_response_has_no_content(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(ai, "httpx", type("M", (), {"AsyncClient": FakeAsyncClient}))
+    FakeAsyncClient.calls = []
+    FakeAsyncClient.responses = None
+    FakeAsyncClient.response = FakeResponse({"choices": [{"message": {"content": None}}]})
+
+    try:
+        asyncio.run(ai.ask_ai("What is 2+2?"))
+        assert False, "expected an exception"
+    except ValueError:
+        pass
+
+    assert len(FakeAsyncClient.calls) == ai.MAX_ATTEMPTS
+
+
+def test_ask_ai_retries_after_an_empty_content_response_and_succeeds(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(ai, "httpx", type("M", (), {"AsyncClient": FakeAsyncClient}))
+    FakeAsyncClient.calls = []
+    FakeAsyncClient.responses = [
+        FakeResponse({"choices": [{"message": {"content": None}}]}),
+        FakeResponse({"choices": [{"message": {"content": "4"}}]}),
+    ]
+
+    result = asyncio.run(ai.ask_ai("What is 2+2?"))
+
+    assert result == "4"
+    assert len(FakeAsyncClient.calls) == 2
+
+    FakeAsyncClient.responses = None
 
 
 def test_ai_ping_returns_the_answer(client, monkeypatch):
@@ -86,6 +124,19 @@ def test_ai_ping_returns_502_when_the_ai_call_fails(client, monkeypatch):
     monkeypatch.setattr(ai_routes, "ask_ai", failing_ask_ai)
 
     response = client.get("/api/ai/ping")
+
+    assert response.status_code == 502
+
+
+def test_ai_chat_returns_502_when_the_ai_returns_no_content(client, monkeypatch):
+    async def fake_no_content(board, history, message):
+        raise ValueError("AI response had no content: {}")
+
+    monkeypatch.setattr(ai_routes, "ask_ai_chat", fake_no_content)
+
+    response = client.post(
+        "/api/ai/chat", json={"board_id": SEED_BOARD_ID, "message": "hi", "history": []}
+    )
 
     assert response.status_code == 502
 
